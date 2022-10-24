@@ -1,22 +1,20 @@
-#!/usr/bin/env python3
-import rclpy
+
+import roslib; roslib.load_manifest('smach_ros')
+import rospy
 
 import threading
-from functools import partial
+import traceback
 
-from .ros_state import RosState
+import smach
 
 __all__ = ['MonitorState']
 
-class MonitorState(RosState):
+class MonitorState(smach.State):
     """
     A state that will check a given ROS topic with a condition function.
     """
-    def __init__(self, node, topic, msg_type, cond_cb, max_checks=-1, input_keys = [], output_keys=[]):
+    def __init__(self, topic, msg_type, cond_cb, max_checks=-1,input_keys = [],output_keys=[]):
         """State constructor
-        @type node rclpy.node.Node
-        @param node the ROS2 node executing the state
-
         @type topic string
         @param topic the topic to monitor
 
@@ -25,13 +23,12 @@ class MonitorState(RosState):
 
         @type max_checks int
         @param max_checks the number of messages to receive and evaluate. If cond_cb returns False for any
-               of them, the state will finish with outcome 'invalid'. If cond_cb returns True for
+               of them, the state will finish with outcome 'invalid'. If cond_cb returns True for 
                all of them, the outcome will be 'valid'
-
+        
         """
-        RosState.__init__(
+        smach.State.__init__(
             self,
-            node,
             outcomes=['valid','invalid','preempted'],
             input_keys = input_keys,
             output_keys = output_keys)
@@ -44,9 +41,6 @@ class MonitorState(RosState):
 
         self._trigger_event = threading.Event()
 
-        self._sub = self.node.create_subscription(self._msg_type,
-            self._topic, self._cb, 1)
-
     def execute(self, ud):
         # If prempted before even getting a chance, give up.
         if self.preempt_requested():
@@ -54,11 +48,12 @@ class MonitorState(RosState):
             return 'preempted'
 
         self._n_checks = 0
-        self._ud = ud
         self._trigger_event.clear()
 
+        self._sub = rospy.Subscriber(self._topic, self._msg_type, self._cb, callback_args=ud)
+
         self._trigger_event.wait()
-        self._ud = None
+        self._sub.unregister()
 
         if self.preempt_requested():
             self.service_preempt()
@@ -69,22 +64,19 @@ class MonitorState(RosState):
 
         return 'invalid'
 
-    def _cb(self, msg) :
-        if self._ud is None: return
-
-        self.node.get_logger().debug("MonitorState._cb: {}, {}".format(self._ud, msg))
+    def _cb(self,msg,ud) :
         try:
-            if self._cond_cb(self._ud, msg):
+            if self._cond_cb(ud, msg):
                 self._n_checks +=1
             else:
                 self._trigger_event.set()
         except Exception as e:
-            self.node.get_logger().error("Error thrown while executing condition callback %s: %s" % (str(self._cond_cb), e))
+            rospy.logerr("Error thrown while executing condition callback %s: %s" % (str(self._cond_cb), e))
             self._trigger_event.set()
-
+            
         if (self._max_checks > 0 and self._n_checks >= self._max_checks):
             self._trigger_event.set()
 
     def request_preempt(self):
-        RosState.request_preempt(self)
+        smach.State.request_preempt(self)
         self._trigger_event.set()

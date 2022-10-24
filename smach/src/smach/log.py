@@ -1,5 +1,4 @@
 
-#!/usr/bin/env python3
 import smach
 
 __all__ = ['set_loggers','loginfo','logwarn','logerr','logdebug']

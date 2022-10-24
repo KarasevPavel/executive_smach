@@ -1,20 +1,15 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 2.8.3)
 
 project(smach_msgs)
 
-find_package(ament_cmake REQUIRED)
-find_package(builtin_interfaces REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(catkin REQUIRED COMPONENTS 
+  message_generation std_msgs)
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/SmachContainerInitialStatusCmd.msg"
-  "msg/SmachContainerStructure.msg"
-  "msg/SmachContainerStatus.msg"
-  DEPENDENCIES builtin_interfaces std_msgs
-  ADD_LINTER_TESTS
-)
+add_message_files(FILES
+  SmachContainerInitialStatusCmd.msg
+  SmachContainerStructure.msg
+  SmachContainerStatus.msg)
 
-ament_export_dependencies(rosidl_default_runtime)
+generate_messages(DEPENDENCIES std_msgs)
 
-ament_package()
+catkin_package(CATKIN_DEPENDS message_runtime)

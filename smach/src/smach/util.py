@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import smach
 
 __all__ = ['is_shutdown', 'set_shutdown_check',
